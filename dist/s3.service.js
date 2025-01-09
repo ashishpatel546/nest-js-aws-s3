@@ -22,14 +22,23 @@ let S3Service = S3Service_1 = class S3Service {
     constructor(options) {
         this.options = options;
         this.logger = new common_1.Logger(S3Service_1.name);
-        this.AWS_S3_BUCKET = options.awsS3Bucket;
-        this.s3 = new client_s3_1.S3Client({
-            region: options.awsS3Region,
-            credentials: {
-                accessKeyId: options.awsS3Accesskey,
-                secretAccessKey: options.awsS3SecretKey,
-            },
-        });
+        this.logger.log('Initializing S3 client...');
+        try {
+            this.AWS_S3_BUCKET = options.awsS3Bucket;
+            this.s3 = new client_s3_1.S3Client({
+                region: options.awsS3Region,
+                credentials: {
+                    accessKeyId: options.awsS3Accesskey,
+                    secretAccessKey: options.awsS3SecretKey,
+                },
+            });
+            this.logger.log('S3 client successfully initialized');
+        }
+        catch (error) {
+            this.logger.error('Failed to initialize S3 client');
+            this.logger.error(error.message);
+            throw error;
+        }
     }
     /**
      * @param bucket The S3 bucket name
@@ -38,6 +47,7 @@ let S3Service = S3Service_1 = class S3Service {
      * @returns Promise with the upload response
      */
     async uploadFile(bucket, key, body) {
+        this.logger.log(`Starting file upload to bucket: ${bucket}, key: ${key}`);
         const command = new client_s3_1.PutObjectCommand({
             Bucket: bucket,
             Key: key,
@@ -45,9 +55,11 @@ let S3Service = S3Service_1 = class S3Service {
         });
         try {
             const response = await this.s3.send(command);
+            this.logger.log(`File successfully uploaded to ${key}`);
             return response;
         }
         catch (error) {
+            this.logger.error(`Failed to upload file to ${key}`);
             this.logger.error(error);
             throw error;
         }
@@ -58,6 +70,7 @@ let S3Service = S3Service_1 = class S3Service {
      * @returns Promise with the upload response
      */
     async uploadFileInPdf(filename, fileBuffer) {
+        this.logger.log(`Starting PDF upload: ${filename}`);
         const params = {
             Bucket: this.AWS_S3_BUCKET,
             Key: filename,
@@ -67,9 +80,11 @@ let S3Service = S3Service_1 = class S3Service {
         const command = new client_s3_1.PutObjectCommand(params);
         try {
             const response = await this.s3.send(command);
+            this.logger.log(`PDF file successfully uploaded: ${filename}`);
             return response;
         }
         catch (error) {
+            this.logger.error(`Failed to upload PDF file: ${filename}`);
             this.logger.error('error while uploading file on s3');
             this.logger.error(error);
         }
@@ -80,6 +95,7 @@ let S3Service = S3Service_1 = class S3Service {
      * @returns Promise with the upload response
      */
     async uploadfileInCsv(filename, fileBuffer) {
+        this.logger.log(`Starting CSV upload: ${filename}`);
         const params = {
             Bucket: this.AWS_S3_BUCKET,
             Key: filename,
@@ -89,9 +105,11 @@ let S3Service = S3Service_1 = class S3Service {
         const command = new client_s3_1.PutObjectCommand(params);
         try {
             const response = await this.s3.send(command);
+            this.logger.log(`CSV file successfully uploaded: ${filename}`);
             return response;
         }
         catch (error) {
+            this.logger.error(`Failed to upload CSV file: ${filename}`);
             this.logger.error('error while uploading file on s3');
             this.logger.error(error);
             throw error; // Add return statement
@@ -106,6 +124,7 @@ let S3Service = S3Service_1 = class S3Service {
      */
     async uploadMultipartPart(uploadId, partNumber, data, key) {
         var _a;
+        this.logger.log(`Uploading part ${partNumber} for ${key} (Upload ID: ${uploadId})`);
         const command = new client_s3_1.UploadPartCommand({
             Bucket: this.AWS_S3_BUCKET,
             Key: key,
@@ -115,10 +134,12 @@ let S3Service = S3Service_1 = class S3Service {
         });
         try {
             const result = await this.s3.send(command);
+            this.logger.log(`Successfully uploaded part ${partNumber} for ${key}`);
             this.logger.log(`Upload part result Status code: ${(_a = result === null || result === void 0 ? void 0 : result.$metadata) === null || _a === void 0 ? void 0 : _a.httpStatusCode}`);
             return result;
         }
         catch (error) {
+            this.logger.error(`Failed to upload part ${partNumber} for ${key}`);
             this.logger.error('Unable to upload file in parts on s3');
             this.logger.error(error.message);
             throw error; // Add return statement
@@ -167,6 +188,7 @@ let S3Service = S3Service_1 = class S3Service {
      * @returns Promise that resolves when upload is complete
      */
     async uploadCsvToS3InChunks(key, data) {
+        this.logger.log(`Starting chunked CSV upload: ${key} with ${data.length} records`);
         const bucket = this.AWS_S3_BUCKET;
         const chunkSize = 100000;
         const totalItems = data.length;
@@ -178,6 +200,7 @@ let S3Service = S3Service_1 = class S3Service {
                 Key: key,
                 ContentType: 'text/csv',
             });
+            this.logger.log('Initiating multipart upload...');
             const multipartUpload = await this.s3.send(command);
             if (!multipartUpload.UploadId) {
                 throw new Error('Failed to get UploadId from multipart upload');
@@ -210,6 +233,7 @@ let S3Service = S3Service_1 = class S3Service {
                     UploadId: multipartUpload.UploadId,
                 });
                 await this.s3.send(completeCommand);
+                this.logger.log(`Completed chunked CSV upload for ${key}`);
             }
             catch (err) {
                 const abortCommand = new client_s3_1.AbortMultipartUploadCommand({
@@ -223,6 +247,7 @@ let S3Service = S3Service_1 = class S3Service {
             }
         }
         catch (error) {
+            this.logger.error(`Failed chunked CSV upload for ${key}`);
             this.logger.error(error.message);
             throw error;
         }
@@ -233,6 +258,7 @@ let S3Service = S3Service_1 = class S3Service {
      * @returns Promise with the signed URL
      */
     async getSignedUrl(key, expires) {
+        this.logger.log(`Generating signed URL for ${key}`);
         const params = {
             Bucket: this.AWS_S3_BUCKET,
             Key: key,
@@ -240,9 +266,11 @@ let S3Service = S3Service_1 = class S3Service {
         try {
             const command = new client_s3_1.GetObjectCommand(params);
             const url = await (0, s3_request_presigner_1.getSignedUrl)(this.s3, command, { expiresIn: expires });
+            this.logger.log(`Generated signed URL for ${key}`);
             return url;
         }
         catch (error) {
+            this.logger.error(`Failed to generate signed URL for ${key}`);
             this.logger.error(error.message);
             throw error;
         }
@@ -251,8 +279,10 @@ let S3Service = S3Service_1 = class S3Service {
      * @param keys Array of object keys to delete
      * @returns Promise that resolves when all objects are deleted
      */
-    deleteMultipleObjects(keys) {
+    async deleteMultipleObjects(keys) {
+        this.logger.log(`Deleting ${keys.length} objects`);
         return Promise.all(keys.map((key) => {
+            this.logger.log(`Deleting object: ${key}`);
             const params = {
                 Bucket: this.AWS_S3_BUCKET,
                 Key: key,
@@ -266,30 +296,19 @@ let S3Service = S3Service_1 = class S3Service {
      * @returns Promise with the list of objects
      */
     async getBucketObjects(keyOrPrefix) {
+        this.logger.log(`Listing objects with prefix: ${keyOrPrefix}`);
         const params = {
             Bucket: this.AWS_S3_BUCKET,
             Prefix: keyOrPrefix,
         };
         try {
             const command = new client_s3_1.ListObjectsCommand(params);
-            return this.s3.send(command);
+            const result = await this.s3.send(command);
+            this.logger.log(`Successfully listed objects with prefix: ${keyOrPrefix}`);
+            return result;
         }
         catch (error) {
-            this.logger.error(error.message);
-            throw error;
-        }
-    }
-    onModuleInit() {
-        try {
-            this.s3 = new client_s3_1.S3Client({
-                region: this.options.awsS3Region,
-                credentials: {
-                    accessKeyId: this.options.awsS3Accesskey,
-                    secretAccessKey: this.options.awsS3SecretKey,
-                },
-            });
-        }
-        catch (error) {
+            this.logger.error(`Failed to list objects with prefix: ${keyOrPrefix}`);
             this.logger.error(error.message);
             throw error;
         }

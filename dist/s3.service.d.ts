@@ -1,7 +1,6 @@
 /// <reference types="node" />
 /// <reference types="node" />
 /// <reference types="node" />
-import { OnModuleInit } from '@nestjs/common';
 import { Readable } from 'stream';
 import { S3ModuleOptions } from './s3.config';
 /**
@@ -12,7 +11,7 @@ export interface CsvData extends Record<string, any> {
     rows?: any[][];
     [key: string]: string | number | boolean | null | string[] | any[][] | undefined;
 }
-export declare class S3Service implements OnModuleInit {
+export declare class S3Service {
     private readonly options;
     private s3;
     private logger;
@@ -76,5 +75,4 @@ export declare class S3Service implements OnModuleInit {
      * @returns Promise with the list of objects
      */
     getBucketObjects(keyOrPrefix: string): Promise<import("@aws-sdk/client-s3").ListObjectsCommandOutput>;
-    onModuleInit(): void;
 }
