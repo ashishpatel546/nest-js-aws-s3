@@ -1,4 +1,4 @@
-import { DynamicModule, Module, Provider, Type, InjectionToken } from '@nestjs/common';
+import { DynamicModule, Module, Provider } from '@nestjs/common';
 import { S3Service } from './s3.service';
 import { S3ModuleOptions, S3ModuleAsyncOptions, S3ModuleOptionsFactory } from './s3.config';
 

@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import {
   S3Client,
   PutObjectCommand,
@@ -27,7 +27,7 @@ export interface CsvData extends Record<string, any> {
 }
 
 @Injectable()
-export class S3Service implements OnModuleInit {
+export class S3Service {
   private s3: S3Client;
   private logger = new Logger(S3Service.name);
   private readonly AWS_S3_BUCKET: string;
@@ -36,14 +36,22 @@ export class S3Service implements OnModuleInit {
    * @param options The S3 module configuration options
    */
   constructor(private readonly options: S3ModuleOptions) {
-    this.AWS_S3_BUCKET = options.awsS3Bucket;
-    this.s3 = new S3Client({
-      region: options.awsS3Region,
-      credentials: {
-        accessKeyId: options.awsS3Accesskey,
-        secretAccessKey: options.awsS3SecretKey,
-      },
-    });
+    this.logger.log('Initializing S3 client...');
+    try {
+      this.AWS_S3_BUCKET = options.awsS3Bucket;
+      this.s3 = new S3Client({
+        region: options.awsS3Region,
+        credentials: {
+          accessKeyId: options.awsS3Accesskey,
+          secretAccessKey: options.awsS3SecretKey,
+        },
+      });
+      this.logger.log('S3 client successfully initialized');
+    } catch (error) {
+      this.logger.error('Failed to initialize S3 client');
+      this.logger.error(error.message);
+      throw error;
+    }
   }
 
   /**
@@ -57,6 +65,7 @@ export class S3Service implements OnModuleInit {
     key: string,
     body: Buffer | Readable
   ) {
+    this.logger.log(`Starting file upload to bucket: ${bucket}, key: ${key}`);
     const command = new PutObjectCommand({
       Bucket: bucket,
       Key: key,
@@ -65,8 +74,10 @@ export class S3Service implements OnModuleInit {
 
     try {
       const response = await this.s3.send(command);
+      this.logger.log(`File successfully uploaded to ${key}`);
       return response;
     } catch (error) {
+      this.logger.error(`Failed to upload file to ${key}`);
       this.logger.error(error);
       throw error;
     }
@@ -81,6 +92,7 @@ export class S3Service implements OnModuleInit {
     filename: string,
     fileBuffer: Buffer
   ) {
+    this.logger.log(`Starting PDF upload: ${filename}`);
     const params = {
       Bucket: this.AWS_S3_BUCKET,
       Key: filename,
@@ -90,8 +102,10 @@ export class S3Service implements OnModuleInit {
     const command = new PutObjectCommand(params);
     try {
       const response = await this.s3.send(command);
+      this.logger.log(`PDF file successfully uploaded: ${filename}`);
       return response;
     } catch (error) {
+      this.logger.error(`Failed to upload PDF file: ${filename}`);
       this.logger.error('error while uploading file on s3');
       this.logger.error(error);
     }
@@ -106,6 +120,7 @@ export class S3Service implements OnModuleInit {
     filename: string,
     fileBuffer: string | Buffer
   ) {
+    this.logger.log(`Starting CSV upload: ${filename}`);
     const params = {
       Bucket: this.AWS_S3_BUCKET,
       Key: filename,
@@ -115,8 +130,10 @@ export class S3Service implements OnModuleInit {
     const command = new PutObjectCommand(params);
     try {
       const response = await this.s3.send(command);
+      this.logger.log(`CSV file successfully uploaded: ${filename}`);
       return response;
     } catch (error) {
+      this.logger.error(`Failed to upload CSV file: ${filename}`);
       this.logger.error('error while uploading file on s3');
       this.logger.error(error);
       throw error; // Add return statement
@@ -136,6 +153,7 @@ export class S3Service implements OnModuleInit {
     data: string,
     key: string,
   ): Promise<CompleteMultipartUploadOutput> {
+    this.logger.log(`Uploading part ${partNumber} for ${key} (Upload ID: ${uploadId})`);
     const command = new UploadPartCommand({
       Bucket: this.AWS_S3_BUCKET,
       Key: key,
@@ -145,11 +163,13 @@ export class S3Service implements OnModuleInit {
     });
     try {
       const result = await this.s3.send(command);
+      this.logger.log(`Successfully uploaded part ${partNumber} for ${key}`);
       this.logger.log(
         `Upload part result Status code: ${result?.$metadata?.httpStatusCode}`,
       );
       return result;
     } catch (error) {
+      this.logger.error(`Failed to upload part ${partNumber} for ${key}`);
       this.logger.error('Unable to upload file in parts on s3');
       this.logger.error(error.message);
       throw error; // Add return statement
@@ -207,6 +227,7 @@ export class S3Service implements OnModuleInit {
     key: string,
     data: CsvData[]
   ): Promise<void> {
+    this.logger.log(`Starting chunked CSV upload: ${key} with ${data.length} records`);
     const bucket = this.AWS_S3_BUCKET;
     const chunkSize = 100000;
     const totalItems = data.length;
@@ -219,6 +240,7 @@ export class S3Service implements OnModuleInit {
         Key: key,
         ContentType: 'text/csv',
       });
+      this.logger.log('Initiating multipart upload...');
       const multipartUpload = await this.s3.send(command);
       if(!multipartUpload.UploadId) {
         throw new Error('Failed to get UploadId from multipart upload');
@@ -263,6 +285,7 @@ export class S3Service implements OnModuleInit {
           UploadId: multipartUpload.UploadId,
         });
         await this.s3.send(completeCommand);
+        this.logger.log(`Completed chunked CSV upload for ${key}`);
       } catch (err) {
         const abortCommand = new AbortMultipartUploadCommand({
           Bucket: bucket,
@@ -274,6 +297,7 @@ export class S3Service implements OnModuleInit {
         throw err;
       }
     } catch (error) {
+      this.logger.error(`Failed chunked CSV upload for ${key}`);
       this.logger.error(error.message);
       throw error;
     }
@@ -288,6 +312,7 @@ export class S3Service implements OnModuleInit {
     key: string,
     expires?: number
   ) {
+    this.logger.log(`Generating signed URL for ${key}`);
     const params = {
       Bucket: this.AWS_S3_BUCKET,
       Key: key,
@@ -295,8 +320,10 @@ export class S3Service implements OnModuleInit {
     try {
       const command = new GetObjectCommand(params);
       const url = await getSignedUrl(this.s3, command, { expiresIn: expires });
+      this.logger.log(`Generated signed URL for ${key}`);
       return url;
     } catch (error) {
+      this.logger.error(`Failed to generate signed URL for ${key}`);
       this.logger.error(error.message);
       throw error;
     }
@@ -306,11 +333,13 @@ export class S3Service implements OnModuleInit {
    * @param keys Array of object keys to delete
    * @returns Promise that resolves when all objects are deleted
    */
-  deleteMultipleObjects(
+  async deleteMultipleObjects(
     keys: string[]
   ) {
+    this.logger.log(`Deleting ${keys.length} objects`);
     return Promise.all(
       keys.map((key) => {
+        this.logger.log(`Deleting object: ${key}`);
         const params = {
           Bucket: this.AWS_S3_BUCKET,
           Key: key,
@@ -328,29 +357,18 @@ export class S3Service implements OnModuleInit {
   async getBucketObjects(
     keyOrPrefix: string
   ) {
+    this.logger.log(`Listing objects with prefix: ${keyOrPrefix}`);
     const params = {
       Bucket: this.AWS_S3_BUCKET,
       Prefix: keyOrPrefix,
     };
     try {
       const command = new ListObjectsCommand(params);
-      return this.s3.send(command);
+      const result = await this.s3.send(command);
+      this.logger.log(`Successfully listed objects with prefix: ${keyOrPrefix}`);
+      return result;
     } catch (error) {
-      this.logger.error(error.message);
-      throw error;
-    }
-  }
-
-  onModuleInit() {
-    try {
-      this.s3 = new S3Client({
-        region: this.options.awsS3Region,
-        credentials: {
-          accessKeyId: this.options.awsS3Accesskey,
-          secretAccessKey: this.options.awsS3SecretKey,
-        },
-      });
-    } catch (error) {
+      this.logger.error(`Failed to list objects with prefix: ${keyOrPrefix}`);
       this.logger.error(error.message);
       throw error;
     }
