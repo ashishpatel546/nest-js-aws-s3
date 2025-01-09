@@ -1,7 +1,7 @@
 {
   "name": "@solegence/nest-js-aws-s3",
   "version": "1.0.0",
-  "description": "NestJS AWS S3 Module",
+  "description": "NestJS AWS S3 Module that can easily upload, download, delete and list files from AWS S3 bucket.",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
