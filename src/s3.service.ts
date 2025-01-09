@@ -1,8 +1,3 @@
-// Add interface before class definition
-interface CsvData {
-  [key: string]: string | number | boolean | null;
-}
-
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import {
   S3Client,
@@ -22,17 +17,46 @@ import { Readable } from 'stream';
 import { S3ModuleOptions } from './s3.config';
 import { stringify } from 'csv-stringify';
 
+/**
+ * Interface for CSV data structure
+ */
+export interface CsvData extends Record<string, any> {
+  headers?: string[];
+  rows?: any[][];
+  [key: string]: string | number | boolean | null | string[] | any[][] | undefined;
+}
+
 @Injectable()
 export class S3Service implements OnModuleInit {
   private s3: S3Client;
   private logger = new Logger(S3Service.name);
   private readonly AWS_S3_BUCKET: string;
 
+  /**
+   * @param options The S3 module configuration options
+   */
   constructor(private readonly options: S3ModuleOptions) {
     this.AWS_S3_BUCKET = options.awsS3Bucket;
+    this.s3 = new S3Client({
+      region: options.awsS3Region,
+      credentials: {
+        accessKeyId: options.awsS3Accesskey,
+        secretAccessKey: options.awsS3SecretKey,
+      },
+    });
   }
 
-  async uploadFile(bucket: string, key: string, body: Buffer | Readable) {
+  /**
+   * @param bucket The S3 bucket name
+   * @param key The object key/path in the bucket
+   * @param body The file content to upload
+   * @returns Promise with the upload response
+   */
+  async uploadFile(
+    bucket: string,
+    key: string,
+    body: Buffer | Readable
+  ) {
     const command = new PutObjectCommand({
       Bucket: bucket,
       Key: key,
@@ -48,7 +72,15 @@ export class S3Service implements OnModuleInit {
     }
   }
 
-  async uploadFileInPdf(filename: string, fileBuffer: Buffer) {
+  /**
+   * @param filename The name of the PDF file
+   * @param fileBuffer The PDF file content as Buffer
+   * @returns Promise with the upload response
+   */
+  async uploadFileInPdf(
+    filename: string,
+    fileBuffer: Buffer
+  ) {
     const params = {
       Bucket: this.AWS_S3_BUCKET,
       Key: filename,
@@ -65,7 +97,15 @@ export class S3Service implements OnModuleInit {
     }
   }
 
-  async uploadfileInCsv(filename: string, fileBuffer: string | Buffer) {
+  /**
+   * @param filename The name of the CSV file
+   * @param fileBuffer The CSV content as string or Buffer
+   * @returns Promise with the upload response
+   */
+  async uploadfileInCsv(
+    filename: string,
+    fileBuffer: string | Buffer
+  ) {
     const params = {
       Bucket: this.AWS_S3_BUCKET,
       Key: filename,
@@ -83,6 +123,13 @@ export class S3Service implements OnModuleInit {
     }
   }
 
+  /**
+   * @param uploadId The multipart upload ID
+   * @param partNumber The part number in the sequence
+   * @param data The data chunk to upload
+   * @param key The object key in the bucket
+   * @returns Promise with the upload response
+   */
   private async uploadMultipartPart(
     uploadId: string,
     partNumber: number,
@@ -109,20 +156,29 @@ export class S3Service implements OnModuleInit {
     }
   }
 
-  // Fix function syntax - remove 'function' keyword
+  /**
+   * @param data Array of objects to convert to CSV
+   * @param includeHeader Whether to include headers in CSV
+   * @returns Promise with the CSV string
+   */
   private async createCsvString(
     data: CsvData[],
     includeHeader: boolean,
   ): Promise<string> {
-    // Replace null values with empty strings
+    // Replace null values with empty strings and convert arrays to strings
     const dataWithEmptyStrings = data.map((obj) => {
-      const newObj: { [key: string]: string | number | boolean | null } = {};
+      const newObj: { [key: string]: string | number | boolean } = {};
       for (const key in obj) {
-        // Fix the length check by properly type guarding
         const value = obj[key];
-        newObj[key] = value !== null && value !== undefined ? 
-          (typeof value === 'string' && value.length === 0 ? ' ' : value) : 
-          ' ';
+        if (value === null || value === undefined) {
+          newObj[key] = ' ';
+        } else if (Array.isArray(value)) {
+          newObj[key] = value.join(','); // Convert arrays to comma-separated strings
+        } else if (typeof value === 'string' && value.length === 0) {
+          newObj[key] = ' ';
+        } else {
+          newObj[key] = value as string | number | boolean;
+        }
       }
       return newObj;
     });
@@ -135,14 +191,22 @@ export class S3Service implements OnModuleInit {
           if (err) {
             reject(err);
           } else {
-            resolve(csvString || ''); // Handle undefined case
+            resolve(csvString || '');
           }
         },
       );
     });
   }
 
-  async uploadCsvToS3InChunks(key: string, data: CsvData[]): Promise<void> {
+  /**
+   * @param key The object key in the bucket
+   * @param data Array of objects to upload as CSV
+   * @returns Promise that resolves when upload is complete
+   */
+  async uploadCsvToS3InChunks(
+    key: string,
+    data: CsvData[]
+  ): Promise<void> {
     const bucket = this.AWS_S3_BUCKET;
     const chunkSize = 100000;
     const totalItems = data.length;
@@ -215,7 +279,15 @@ export class S3Service implements OnModuleInit {
     }
   }
 
-  async getSignedUrl(key: string, expires?: number) {
+  /**
+   * @param key The object key to generate URL for
+   * @param expires Number of seconds until URL expires
+   * @returns Promise with the signed URL
+   */
+  async getSignedUrl(
+    key: string,
+    expires?: number
+  ) {
     const params = {
       Bucket: this.AWS_S3_BUCKET,
       Key: key,
@@ -230,7 +302,13 @@ export class S3Service implements OnModuleInit {
     }
   }
 
-  deleteMultipleObjects(keys: string[]) {
+  /**
+   * @param keys Array of object keys to delete
+   * @returns Promise that resolves when all objects are deleted
+   */
+  deleteMultipleObjects(
+    keys: string[]
+  ) {
     return Promise.all(
       keys.map((key) => {
         const params = {
@@ -243,7 +321,13 @@ export class S3Service implements OnModuleInit {
     );
   }
 
-  async getBucketObjects(keyOrPrefix: string) {
+  /**
+   * @param keyOrPrefix The key or prefix to list objects for
+   * @returns Promise with the list of objects
+   */
+  async getBucketObjects(
+    keyOrPrefix: string
+  ) {
     const params = {
       Bucket: this.AWS_S3_BUCKET,
       Prefix: keyOrPrefix,

@@ -1,9 +1,13 @@
-import { DynamicModule, Module, Provider, Type } from '@nestjs/common';
+import { DynamicModule, Module, Provider, Type, InjectionToken } from '@nestjs/common';
 import { S3Service } from './s3.service';
 import { S3ModuleOptions, S3ModuleAsyncOptions, S3ModuleOptionsFactory } from './s3.config';
 
 @Module({})
 export class S3Module {
+  /**
+   * @param options The S3 module configuration options
+   * @returns Dynamic module configuration
+   */
   static register(options: S3ModuleOptions): DynamicModule {
     return {
       module: S3Module,
@@ -18,6 +22,10 @@ export class S3Module {
     };
   }
 
+  /**
+   * @param options The async options for S3 module configuration
+   * @returns Dynamic module configuration
+   */
   static registerAsync(options: S3ModuleAsyncOptions): DynamicModule {
     return {
       module: S3Module,
@@ -30,6 +38,10 @@ export class S3Module {
     };
   }
 
+  /**
+   * @param options The async options for creating providers
+   * @returns Array of providers
+   */
   private static createAsyncProviders(options: S3ModuleAsyncOptions): Provider[] {
     if (options.useExisting || options.useFactory) {
       return [this.createAsyncOptionsProvider(options)];
@@ -48,6 +60,10 @@ export class S3Module {
     ];
   }
 
+  /**
+   * @param options The async options for creating the options provider
+   * @returns Provider configuration
+   */
   private static createAsyncOptionsProvider(options: S3ModuleAsyncOptions): Provider {
     if (options.useFactory) {
       return {
@@ -57,11 +73,10 @@ export class S3Module {
       };
     }
 
-    if (!options.useClass && !options.useExisting) {
+    const injectionToken = options.useExisting || options.useClass;
+    if (!injectionToken) {
       throw new Error('useClass or useExisting is required when not using useFactory');
     }
-
-    const inject = [options.useExisting || options.useClass];
 
     return {
       provide: 'S3_MODULE_OPTIONS',
@@ -72,7 +87,7 @@ export class S3Module {
           throw new Error(`Failed to create S3 module options: ${error.message}`);
         }
       },
-      inject: inject,
+      inject: [injectionToken],
     };
   }
 }
