@@ -11,6 +11,7 @@ export class S3Module {
   static register(options: S3ModuleOptions): DynamicModule {
     return {
       module: S3Module,
+      global: options.isGlobal ?? false,
       providers: [
         {
           provide: 'S3_MODULE_OPTIONS',
@@ -29,6 +30,7 @@ export class S3Module {
   static registerAsync(options: S3ModuleAsyncOptions): DynamicModule {
     return {
       module: S3Module,
+      global: options.isGlobal ?? false,
       imports: options.imports || [],
       providers: [
         ...this.createAsyncProviders(options),

@@ -16,8 +16,10 @@ let S3Module = S3Module_1 = class S3Module {
      * @returns Dynamic module configuration
      */
     static register(options) {
+        var _a;
         return {
             module: S3Module_1,
+            global: (_a = options.isGlobal) !== null && _a !== void 0 ? _a : false,
             providers: [
                 {
                     provide: 'S3_MODULE_OPTIONS',
@@ -33,8 +35,10 @@ let S3Module = S3Module_1 = class S3Module {
      * @returns Dynamic module configuration
      */
     static registerAsync(options) {
+        var _a;
         return {
             module: S3Module_1,
+            global: (_a = options.isGlobal) !== null && _a !== void 0 ? _a : false,
             imports: options.imports || [],
             providers: [
                 ...this.createAsyncProviders(options),

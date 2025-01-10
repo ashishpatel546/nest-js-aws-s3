@@ -8,6 +8,9 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
+var __param = (this && this.__param) || function (paramIndex, decorator) {
+    return function (target, key) { decorator(target, key, paramIndex); }
+};
 var S3Service_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.S3Service = void 0;
@@ -22,7 +25,7 @@ let S3Service = S3Service_1 = class S3Service {
     constructor(options) {
         this.options = options;
         this.logger = new common_1.Logger(S3Service_1.name);
-        this.logger.log('Initializing S3 client...');
+        this.logger.debug('Initializing S3 client...');
         try {
             this.AWS_S3_BUCKET = options.awsS3Bucket;
             this.s3 = new client_s3_1.S3Client({
@@ -317,6 +320,7 @@ let S3Service = S3Service_1 = class S3Service {
 exports.S3Service = S3Service;
 exports.S3Service = S3Service = S3Service_1 = __decorate([
     (0, common_1.Injectable)(),
+    __param(0, (0, common_1.Inject)('S3_MODULE_OPTIONS')),
     __metadata("design:paramtypes", [Object])
 ], S3Service);
 //# sourceMappingURL=s3.service.js.map

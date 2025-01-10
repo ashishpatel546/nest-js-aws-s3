@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import {
   S3Client,
   PutObjectCommand,
@@ -35,8 +35,10 @@ export class S3Service {
   /**
    * @param options The S3 module configuration options
    */
-  constructor(private readonly options: S3ModuleOptions) {
-    this.logger.log('Initializing S3 client...');
+  constructor(
+    @Inject('S3_MODULE_OPTIONS') private readonly options: S3ModuleOptions
+  ) {
+    this.logger.debug('Initializing S3 client...');
     try {
       this.AWS_S3_BUCKET = options.awsS3Bucket;
       this.s3 = new S3Client({

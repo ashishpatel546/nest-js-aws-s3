@@ -3,14 +3,16 @@ import { ModuleMetadata, Type } from '@nestjs/common';
  * Configuration options for the S3 module
  */
 export interface S3ModuleOptions {
-    /** AWS S3 region */
-    awsS3Region: string;
-    /** AWS S3 bucket name */
-    awsS3Bucket: string;
     /** AWS S3 access key */
     awsS3Accesskey: string;
     /** AWS S3 secret key */
     awsS3SecretKey: string;
+    /** AWS S3 region */
+    awsS3Region: string;
+    /** AWS S3 bucket name */
+    awsS3Bucket: string;
+    /** Make the module global */
+    isGlobal?: boolean;
 }
 /**
  * Factory interface for creating S3ModuleOptions
@@ -30,4 +32,6 @@ export interface S3ModuleAsyncOptions extends Pick<ModuleMetadata, 'imports'> {
     useFactory?: (...args: any[]) => Promise<S3ModuleOptions> | S3ModuleOptions;
     /** Injectable dependencies for the useFactory function */
     inject?: any[];
+    /** Make the module global */
+    isGlobal?: boolean;
 }
