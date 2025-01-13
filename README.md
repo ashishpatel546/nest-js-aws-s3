@@ -1,4 +1,4 @@
-# NestJS AWS S3 Module
+# NestJS AWS S3 Module Integration
 
 A powerful and flexible AWS S3 integration module for NestJS applications with support for file uploads, signed URLs, and bucket operations.
 
@@ -33,6 +33,10 @@ AWS_SECRET_ACCESS_KEY=your-secret-key
 
 ### Module Registration
 
+There are two ways to register the S3Module:
+
+#### 1. Synchronous Registration
+
 ```typescript
 import { S3Module } from '@solegence/nest-js-aws-s3';
 
@@ -43,13 +47,76 @@ import { S3Module } from '@solegence/nest-js-aws-s3';
       awsS3Bucket: process.env.AWS_S3_BUCKET,
       awsS3Accesskey: process.env.AWS_ACCESS_KEY_ID,
       awsS3SecretKey: process.env.AWS_SECRET_ACCESS_KEY,
+      isGlobal: true, // optional: make the module global
     }),
   ],
 })
 export class AppModule {}
 ```
 
+#### 2. Asynchronous Registration
+
+```typescript
+import { S3Module } from '@solegence/nest-js-aws-s3';
+import { ConfigService, ConfigModule } from '@nestjs/config';
+
+@Module({
+  imports: [
+    S3Module.registerAsync({
+      imports: [ConfigModule],
+      useFactory: (configService: ConfigService) => ({
+        awsS3Region: configService.get('AWS_S3_REGION'),
+        awsS3Bucket: configService.get('AWS_S3_BUCKET'),
+        awsS3Accesskey: configService.get('AWS_ACCESS_KEY_ID'),
+        awsS3SecretKey: configService.get('AWS_SECRET_ACCESS_KEY'),
+        isGlobal: true, // optional: make the module global
+      }),
+      inject: [ConfigService],
+    }),
+  ],
+})
+export class AppModule {}
+```
+
+You can also use `useClass` or `useExisting` instead of `useFactory`:
+
+```typescript
+// Using useClass
+S3Module.registerAsync({
+  useClass: S3ConfigService, // Your custom config service that implements S3ModuleOptionsFactory
+});
+
+// Using useExisting
+S3Module.registerAsync({
+  useExisting: ConfigService, // Existing provider that implements S3ModuleOptionsFactory
+});
+```
+
 ## Usage Examples
+
+### Basic File Upload
+
+```typescript
+async uploadSingleFile(filename: string, buffer: Buffer) {
+  return await this.s3Service.uploadFile(this.AWS_S3_BUCKET, filename, buffer);
+}
+```
+
+### Converting and Uploading CSV Data
+
+```typescript
+// Convert array of objects to CSV and upload
+const data = [
+  { name: 'John', age: 30, city: 'New York' },
+  { name: 'Jane', age: 25, city: 'London' }
+];
+
+// With headers (default)
+await s3Service.convertAndUploadCsv('users.csv', data);
+
+// Without headers
+await s3Service.convertAndUploadCsv('users.csv', data, false);
+```
 
 ### Uploading Files
 
@@ -95,10 +162,51 @@ async uploadLargeCsv(key: string, data: any[]) {
 | uploadFile | Generic file upload | bucket: string, key: string, body: Buffer \| Readable | Promise<PutObjectCommandOutput> |
 | uploadFileInPdf | PDF file upload | filename: string, fileBuffer: Buffer | Promise<PutObjectCommandOutput> |
 | uploadfileInCsv | CSV file upload | filename: string, fileBuffer: string \| Buffer | Promise<PutObjectCommandOutput> |
+| convertAndUploadCsv | Convert data to CSV and upload | filename: string, data: CsvData[], includeHeader?: boolean | Promise<PutObjectCommandOutput> |
 | uploadCsvToS3InChunks | Large CSV upload in chunks | key: string, data: CsvData[] | Promise<void> |
 | getSignedUrl | Generate presigned URL | key: string, expires?: number | Promise<string> |
 | deleteMultipleObjects | Delete multiple objects | keys: string[] | Promise<DeleteObjectCommandOutput[]> |
 | getBucketObjects | List bucket objects | keyOrPrefix: string | Promise<ListObjectsCommandOutput> |
+
+## Best Practices
+
+### File Upload Recommendations
+
+1. **Content Type Selection**
+   - Use appropriate methods for specific file types:
+     - `uploadFileInPdf` for PDF files
+     - `uploadfileInCsv` for CSV files
+     - `uploadFile` for generic files
+
+2. **Large Dataset Handling**
+   - Use `uploadCsvToS3InChunks` for large datasets
+   - Use `convertAndUploadCsv` for smaller datasets
+
+3. **Error Handling**
+```typescript
+try {
+  await s3Service.uploadFileInPdf('document.pdf', buffer);
+} catch (error) {
+  // Handle specific error types
+  if (error.name === 'NoSuchBucket') {
+    // Handle bucket not found
+  } else if (error.$metadata?.httpStatusCode === 403) {
+    // Handle permission issues
+  }
+}
+```
+
+## Type Definitions
+
+### CsvData Interface
+
+```typescript
+interface CsvData extends Record<string, any> {
+  headers?: string[];
+  rows?: any[][];
+  [key: string]: string | number | boolean | null | string[] | any[][] | undefined;
+}
+```
 
 ## Troubleshooting
 
@@ -116,6 +224,18 @@ async uploadLargeCsv(key: string, data: any[]) {
 3. **Missing Credentials**
    - Ensure environment variables are properly set
    - Verify module registration includes all required options
+
+## Performance Optimization
+
+1. **Large File Uploads**
+   - Use multipart uploads for files > 100MB
+   - Implement chunked uploads for large CSV datasets
+   - Consider compression for large files
+
+2. **Bucket Organization**
+   - Use meaningful prefixes for better organization
+   - Implement lifecycle policies for cost optimization
+   - Use appropriate storage classes based on access patterns
 
 ## Contributing
 

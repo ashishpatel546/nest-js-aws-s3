@@ -119,6 +119,25 @@ let S3Service = S3Service_1 = class S3Service {
         }
     }
     /**
+     * Converts array of objects to CSV and uploads to S3
+     * @param filename The name of the CSV file
+     * @param data Array of objects to convert to CSV
+     * @param includeHeader Whether to include headers in CSV (default: true)
+     * @returns Promise with the upload response
+     */
+    async convertAndUploadCsv(filename, data, includeHeader = true) {
+        this.logger.log(`Converting data to CSV and uploading: ${filename}`);
+        try {
+            const csvString = await this.createCsvString(data, includeHeader);
+            return await this.uploadfileInCsv(filename, csvString);
+        }
+        catch (error) {
+            this.logger.error(`Failed to convert and upload CSV: ${filename}`);
+            this.logger.error(error.message);
+            throw error;
+        }
+    }
+    /**
      * @param uploadId The multipart upload ID
      * @param partNumber The part number in the sequence
      * @param data The data chunk to upload

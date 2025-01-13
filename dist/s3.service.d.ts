@@ -40,6 +40,14 @@ export declare class S3Service {
      */
     uploadfileInCsv(filename: string, fileBuffer: string | Buffer): Promise<import("@aws-sdk/client-s3").PutObjectCommandOutput>;
     /**
+     * Converts array of objects to CSV and uploads to S3
+     * @param filename The name of the CSV file
+     * @param data Array of objects to convert to CSV
+     * @param includeHeader Whether to include headers in CSV (default: true)
+     * @returns Promise with the upload response
+     */
+    convertAndUploadCsv(filename: string, data: CsvData[], includeHeader?: boolean): Promise<import("@aws-sdk/client-s3").PutObjectCommandOutput>;
+    /**
      * @param uploadId The multipart upload ID
      * @param partNumber The part number in the sequence
      * @param data The data chunk to upload
